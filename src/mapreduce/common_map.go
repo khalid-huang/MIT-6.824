@@ -1,7 +1,12 @@
 package mapreduce
 
 import (
+	"encoding/json"
+	"fmt"
 	"hash/fnv"
+	"io/ioutil"
+	"log"
+	"os"
 )
 
 func doMap(
@@ -53,6 +58,41 @@ func doMap(
 	//
 	// Your code here (Part I).
 	//
+	//读取文件内容，调用mapF，切分成n块，将mapF的内容保存成中间文件
+	data, err := ioutil.ReadFile(inFile)
+	if err != nil {
+		log.Fatal("doMap: ReadFile err->", err)
+	}
+
+	content := string(data)
+	kvPairs := mapF(inFile, content)
+
+	nArray := make([][]KeyValue, nReduce)
+	for _, kv := range kvPairs {
+		hashCode := ihash(kv.Key)
+		index := hashCode % nReduce
+		nArray[index] = append(nArray[index], kv)
+	}
+
+	//将nReduce个一维数组写入到各个对应的文件中
+	for i := 0; i < nReduce; i++ {
+		outFile := reduceName(jobName, mapTask, i)
+		f, openErr := os.OpenFile(outFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0664)
+		fmt.Println("outFile:", outFile)
+		if openErr != nil {
+			log.Fatal("OpenFile Err: ", openErr)
+		}
+		defer f.Close()
+
+		encoder := json.NewEncoder(f)
+		for _, kv := range nArray[i] {
+			err := encoder.Encode(&kv)
+			if err != nil {
+				log.Fatal("Encoder: ", err)
+			}
+		}
+	}
+
 }
 
 func ihash(s string) int {
