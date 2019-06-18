@@ -51,7 +51,7 @@ func schedule(jobName string, mapFiles []string, nReduce int, phase jobPhase, re
 			defer wg.Done()
 			for { //放入到无限循环中，只要task没有完成，就一直执行
 				worker := <-registerChan //获取一个就绪态的worker
-				ok := call(worker, "Worker.DoTask", args, nil)
+				ok := call(worker, "Worker.DoTask", &args, nil)
 				if ok { //如果没有成功的话重新开始循环; 如果成功就结束
 					go func() {
 						registerChan <- worker //将worker重新放回，让其可以接受新的task
