@@ -19,15 +19,13 @@ import (
 //
 func mapF(filename string, contents string) []mapreduce.KeyValue {
 	// Your code here (Part II).
-	debug("Map %v\n", filename)
-	res []mapreduce.KeyValue
 	words := strings.FieldsFunc(contents, func(c rune) bool {
 		return !unicode.IsLetter(c)
 	})
+	res := make([]mapreduce.KeyValue, 0, len(words))
 	for _, w := range words {
-			kv := mapreduce.KeyValue{w, "1"}
-			res = append(res, kv)
-		}
+		kv := mapreduce.KeyValue{w, "1"}
+		res = append(res, kv)
 	}
 	return res
 }
