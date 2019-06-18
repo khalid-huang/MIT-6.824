@@ -16,5 +16,7 @@ doReduce方法会被调用nReduce次，每次都称为一次ReduceTask，每个R
 - 将上述的nMap个KV数组汇总成一个大的KV数组，然后再进行排序
 - 针对汇总的KV数组【已排序的】，遍历出相同的Key值，将其Value值进行汇总成一个Value数组，将这个Value数组和Key值 传入到test_test.go中定义reduceFunc函数中，生成一个新的KV数组【在这个实验中，Value其实都是空】，并写入到文件中
 
+经过所有doReduce的处理之后呢，会产生nReduce个文件，每个ReduceTask都汇总了全部的mrtmp.test-i-reduceTask文件的内容
+
 ## 代码运行
 设置好GOPATH之后，在src/mapreduce目录下，运行```go test -run Sequential```
