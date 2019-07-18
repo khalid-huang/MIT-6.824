@@ -20,7 +20,6 @@ package raft
 import (
 	"fmt"
 	"math/rand"
-	"strconv"
 	"sync"
 	"time"
 )
@@ -80,6 +79,8 @@ type Raft struct {
 	appendCh chan struct{}     //成功更新log的信息（包含heartbreat的响应）
 
 }
+
+
 
 // return currentTerm and whether this server
 // believes it is the leader.
@@ -177,10 +178,14 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		reply.Term = rf.currentTerm
 		reply.VoteGrandted = false
 	} else if args.Term > rf.currentTerm {
+		//fmt.Printf("server %d 状态为 %s, term从%d经由server %d变成%d\n", rf.me, rf.state, rf.currentTerm, args.CandidateId, args.Term)
 		rf.currentTerm = args.Term
 		rf.updateStateTo(FOLLOWER)
+		//rf.voteAcquired = 0 //已获得的投票数重置为0
 		rf.votedFor = args.CandidateId
+		//fmt.Printf("--- server %d vote for server %d in term %d--- \n ", rf.me, args.CandidateId, rf.currentTerm)
 		//reply.term =
+		reply.Term = args.Term
 		reply.VoteGrandted = true
 	} else {
 		if rf.votedFor == -1 {
@@ -207,7 +212,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		reply.Term = rf.currentTerm
 	} else if args.Term > rf.currentTerm {
 		rf.updateStateTo(FOLLOWER)
-		rf.votedFor = -1
+		//rf.votedFor = -1
 		reply.Success = true
 		reply.Term = args.Term
 	} else {
@@ -300,6 +305,12 @@ func randomElectionDuration() time.Duration {
 		r.Int63n(MAX_ELECTION_INTERVAL - MIN_ELECTION_INTERVAL) + MIN_ELECTION_INTERVAL)
 }
 
+//重置一些Raft peer的参数
+func (rf *Raft) resetRaftState() {
+	rf.votedFor = -1
+	rf.voteAcquired = 0
+}
+
 func (rf *Raft) updateStateTo(state string) {
 	if rf.state == state {
 		return
@@ -310,10 +321,13 @@ func (rf *Raft) updateStateTo(state string) {
 	switch state {
 	case FOLLOWER:
 		rf.state = FOLLOWER
+		rf.resetRaftState()
 	case CANDIDATE:
 		rf.state = CANDIDATE
+		rf.resetRaftState()
 	case LEADER:
 		rf.state = LEADER
+		rf.resetRaftState()
 	default:
 		fmt.Printf("Warning: invalid state %s, do nothing.\n", state)
 	}
@@ -355,12 +369,12 @@ func (rf *Raft) broadcastRequestVote() {
 
 				if reply.VoteGrandted == true {
 					rf.voteAcquired += 1
-					//判断是否达到要求
-
 				} else {
 					if reply.Term > rf.currentTerm {
 						rf.currentTerm = reply.Term
 						rf.updateStateTo(FOLLOWER)
+						//rf.voteAcquired = 0
+						//rf.votedFor = -1
 					}
 				}
 			} else {
@@ -434,9 +448,12 @@ func (rf *Raft) startLoop() {
 				rf.startElection()
 			}
 			//检验是否投票数达到要求
-			fmt.Println("投票数：" + strconv.Itoa(rf.voteAcquired))
+			fmt.Printf("server %d 在term为%d获得的票数为 %d： \n", rf.me, rf.currentTerm, rf.voteAcquired)
 			if rf.voteAcquired > len(rf.peers) / 2 {
+				fmt.Printf("半数以上是大于：%d\n", len(rf.peers) / 2)
+				fmt.Printf("server %d 在term为%d获得的票数为 %d：成为LAEDER \n", rf.me, rf.currentTerm, rf.voteAcquired)
 				rf.updateStateTo(LEADER)
+				rf.broadcastAppendEntries()
 			}
 
 		case LEADER:
